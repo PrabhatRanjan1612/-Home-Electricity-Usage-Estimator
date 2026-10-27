@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home Electricity Usage Estimator | MCA Project</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Toast Notification Container for Error Messages & Feedback -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- Application Navigation / Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon">⚡</div>
+        <div>
+          <h1 class="brand-title">Home Electricity Usage Estimator</h1>
+          <p class="brand-subtitle">Smart Energy &amp; Cost Estimation System · Client-Side SPA</p>
+        </div>
+      </div>
+
+      <!-- Top Controls: Currency & Base Electricity Rate -->
+      <div class="header-controls">
+        <div class="rate-config-card">
+          <label for="currencySelect" class="config-label">Currency</label>
+          <select id="currencySelect" class="config-select">
+            <option value="₹" selected>₹ (INR)</option>
+            <option value="$">$ (USD)</option>
+            <option value="€">€ (EUR)</option>
+            <option value="£">£ (GBP)</option>
+          </select>
+        </div>
+
+        <div class="rate-config-card" id="rateCard">
+          <label for="electricityRateInput" class="config-label">
+            Electricity Rate per Unit (<span id="currencySymbolLabel">₹</span>/kWh)
+          </label>
+          <div class="input-with-button">
+            <input 
+              type="number" 
+              id="electricityRateInput" 
+              class="rate-input" 
+              placeholder="e.g., 7.50" 
+              step="0.1" 
+              min="0.1"
+              value="7.50"
+              required
+            >
+            <button id="saveRateBtn" class="btn btn-sm btn-primary" title="Update rate across all calculations">
+              Update Rate
+            </button>
+          </div>
+          <span id="rateErrorMsg" class="field-error-text"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="main-container">
+
+    <!-- Top Action Bar -->
+    <section class="action-bar-card">
+      <div class="action-bar-info">
+        <span class="badge badge-info">Architecture: HTML5 · CSS3 · Vanilla JS</span>
+        <span class="badge badge-success" id="storageStatusBadge">🗄️ LocalStorage Synced</span>
+      </div>
+      <div class="action-bar-buttons">
+        <button id="openWhatIfBtn" class="btn btn-secondary">
+          🔮 What-If Calculator
+        </button>
+        <button id="openCompareBtn" class="btn btn-secondary">
+          ⚖️ Compare Appliances
+        </button>
+        <button id="exportCsvBtn" class="btn btn-outline">
+          📥 Export CSV
+        </button>
+        <button id="resetDataBtn" class="btn btn-danger-outline">
+          🗑️ Reset Data
+        </button>
+      </div>
+    </section>
+
+    <!-- Two-Column Grid: Left (Appliance Input Form) | Right (Summary Dashboard) -->
+    <div class="dashboard-grid">
+
+      <!-- LEFT COLUMN: Appliance Input Form & Quick Presets -->
+      <section class="card form-card">
+        <div class="card-header">
+          <h2 class="card-title">🔌 Enter Appliance Details</h2>
+          <span class="card-tag">Input Stage</span>
+        </div>
+
+        <!-- Quick Pick Presets -->
+        <div class="presets-container">
+          <span class="presets-title">Quick Presets:</span>
+          <div class="preset-chips">
+            <button type="button" class="preset-chip" data-name="Air Conditioner (1.5 Ton)" data-power="1500" data-hours="8">❄️ AC (1500W)</button>
+            <button type="button" class="preset-chip" data-name="Refrigerator" data-power="250" data-hours="24">🧊 Fridge (250W)</button>
+            <button type="button" class="preset-chip" data-name="Ceiling Fan" data-power="75" data-hours="12">🌀 Fan (75W)</button>
+            <button type="button" class="preset-chip" data-name="Smart LED TV" data-power="100" data-hours="5">📺 TV (100W)</button>
+            <button type="button" class="preset-chip" data-name="Water Geyser" data-power="2000" data-hours="1">🚿 Geyser (2000W)</button>
+            <button type="button" class="preset-chip" data-name="Washing Machine" data-power="500" data-hours="1.5">🧺 Washer (500W)</button>
+          </div>
+        </div>
+
+        <!-- Main Appliance Form -->
+        <form id="applianceForm" novalidate>
+          <div class="form-group">
+            <label for="applianceName" class="form-label">
+              Appliance Name <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="applianceName" 
+              class="form-control" 
+              placeholder="e.g., Inverter Air Conditioner" 
+              autocomplete="off"
+              required
+            >
+            <span id="nameError" class="field-error-text"></span>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="powerWatts" class="form-label">
+                Power in Watts (W) <span class="required">*</span>
+              </label>
+              <input 
+                type="number" 
+                id="powerWatts" 
+                class="form-control" 
+                placeholder="e.g., 1500" 
+                min="1" 
+                step="1"
+                required
+              >
+              <span id="powerError" class="field-error-text"></span>
+            </div>
+
+            <div class="form-group">
+              <label for="quantity" class="form-label">
+                Quantity <span class="required">*</span>
+              </label>
+              <input 
+                type="number" 
+                id="quantity" 
+                class="form-control" 
+                placeholder="e.g., 1" 
+                value="1" 
+                min="1" 
+                step="1"
+                required
+              >
+              <span id="quantityError" class="field-error-text"></span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="hoursPerDay" class="form-label">
+              Operating Hours Used per Day (0 to 24 hrs) <span class="required">*</span>
+            </label>
+            <div class="slider-input-group">
+              <input 
+                type="number" 
+                id="hoursPerDay" 
+                class="form-control" 
+                placeholder="e.g., 8" 
+                min="0" 
+                max="24" 
+                step="0.5" 
+                value="6"
+                required
+              >
+              <input 
+                type="range" 
+                id="hoursRange" 
+                class="range-slider" 
+                min="0" 
+                max="24" 
+                step="0.5" 
+                value="6"
+              >
+            </div>
+            <span id="hoursError" class="field-error-text"></span>
+          </div>
+
+          <!-- Real-time Live Calculation Preview for this single item -->
+          <div class="item-preview-box" id="itemPreviewBox">
+            <div class="preview-label">Live Item Preview:</div>
+            <div class="preview-values">
+              <div>Daily: <strong id="previewDaily">0.00 kWh</strong></div>
+              <div>Monthly: <strong id="previewMonthly">0.00 kWh</strong></div>
+              <div>Est. Cost: <strong id="previewCost">₹0.00</strong></div>
+            </div>
+          </div>
+
+          <!-- Form Buttons -->
+          <div class="form-actions">
+            <button type="submit" id="submitApplianceBtn" class="btn btn-primary btn-block">
+              ➕ Add Appliance to List
+            </button>
+            <button type="button" id="clearFormBtn" class="btn btn-outline">
+              Clear
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- RIGHT COLUMN: Dashboard Cards & Usage Level -->
+      <section class="dashboard-display">
+
+        <!-- 5 Summary KPI Cards -->
+        <div class="kpi-grid">
+          <!-- KPI 1: Daily Consumption -->
+          <div class="kpi-card">
+            <div class="kpi-icon icon-blue">⚡</div>
+            <div class="kpi-content">
+              <span class="kpi-title">Daily Consumption</span>
+              <div class="kpi-value"><span id="totalDailyKWh">0.00</span> <small>kWh</small></div>
+              <span class="kpi-subtext">Units consumed per day</span>
+            </div>
+          </div>
+
+          <!-- KPI 2: Monthly Consumption -->
+          <div class="kpi-card">
+            <div class="kpi-icon icon-purple">📅</div>
+            <div class="kpi-content">
+              <span class="kpi-title">Monthly Consumption</span>
+              <div class="kpi-value"><span id="totalMonthlyKWh">0.00</span> <small>kWh</small></div>
+              <span class="kpi-subtext">Standard 30-day cycle</span>
+            </div>
+          </div>
+
+          <!-- KPI 3: Estimated Electricity Cost -->
+          <div class="kpi-card highlight-card">
+            <div class="kpi-icon icon-green">💰</div>
+            <div class="kpi-content">
+              <span class="kpi-title">Estimated Monthly Bill</span>
+              <div class="kpi-value"><span id="totalMonthlyCost">₹0.00</span></div>
+              <span class="kpi-subtext" id="kpiRateSubtext">At ₹7.50 per unit</span>
+            </div>
+          </div>
+
+          <!-- KPI 4: Highest Consumer -->
+          <div class="kpi-card">
+            <div class="kpi-icon icon-amber">🔥</div>
+            <div class="kpi-content">
+              <span class="kpi-title">Highest Energy Consumer</span>
+              <div class="kpi-value-sm" id="highestConsumerName">None</div>
+              <span class="kpi-subtext" id="highestConsumerStat">0.00 kWh/mo (0%)</span>
+            </div>
+          </div>
+
+          <!-- KPI 5: Energy Usage Level Badge -->
+          <div class="kpi-card">
+            <div class="kpi-icon icon-teal">📊</div>
+            <div class="kpi-content">
+              <span class="kpi-title">Energy Usage Level</span>
+              <div id="usageLevelBadge" class="usage-badge badge-low">Low Usage</div>
+              <div class="usage-gauge-container">
+                <div class="usage-gauge-bar" id="usageGaugeBar" style="width: 10%;"></div>
+              </div>
+              <span class="kpi-subtext" id="usageLevelDesc">&lt; 150 kWh/mo</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Energy-Saving Suggestions Card -->
+        <div class="card suggestions-card">
+          <div class="card-header">
+            <h3 class="card-title">💡 Dynamic Energy-Saving Suggestions</h3>
+            <span class="card-tag tag-success">Smart Recommendations</span>
+          </div>
+          <ul class="suggestions-list" id="suggestionsList">
+            <li>Loading personalized energy-saving recommendations...</li>
+          </ul>
+        </div>
+
+        <!-- Appliance Consumption Visual Breakdown Chart -->
+        <div class="card chart-card">
+          <div class="card-header">
+            <h3 class="card-title">📈 Consumption Breakdown by Appliance</h3>
+            <span class="card-tag">Visual Distribution</span>
+          </div>
+          <div id="chartContainer" class="chart-container">
+            <p class="empty-state-text">Add appliances to view graphical energy share.</p>
+          </div>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- Appliance Inventory & Data Management Table -->
+    <section class="card table-card">
+      <div class="table-header-flex">
+        <div>
+          <h2 class="card-title">📋 Added Appliances Inventory</h2>
+          <p class="card-subtitle">Manage, analyze, and optimize domestic electrical loads</p>
+        </div>
+        <div class="table-actions">
+          <span class="appliance-count-badge" id="applianceCountBadge">0 Appliances</span>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="appliance-table" id="appliancesTable">
+          <thead>
+            <tr>
+              <th>Appliance Name</th>
+              <th>Power (Watts)</th>
+              <th>Quantity</th>
+              <th>Hours / Day</th>
+              <th>Daily kWh</th>
+              <th>Monthly kWh</th>
+              <th>Monthly Cost</th>
+              <th>% Share</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="applianceTableBody">
+            <!-- Dynamically populated via JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Empty State Container when no appliances exist -->
+      <div id="emptyState" class="empty-state">
+        <div class="empty-state-icon">🔌</div>
+        <h3>No Appliances Added Yet</h3>
+        <p>Use the input form on the left or select a quick preset to begin your energy estimate.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- MODALS & DIALOGS (NATIVE HTML5 <dialog>)                  -->
+  <!-- ======================================================== -->
+
+  <!-- 1. What-If Scenario Calculator Modal -->
+  <dialog id="whatIfDialog" class="app-dialog">
+    <div class="dialog-content">
+      <div class="dialog-header">
+        <h3 class="dialog-title">🔮 What-If Scenario Calculator</h3>
+        <button type="button" class="btn-close" id="closeWhatIfBtn">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-desc">
+          Simulate how reducing or modifying operating hours impacts your monthly electricity consumption and utility bill.
+        </p>
+
+        <form id="whatIfForm" novalidate>
+          <div class="form-group">
+            <label for="whatIfApplianceSelect" class="form-label">Select Appliance to Simulate</label>
+            <select id="whatIfApplianceSelect" class="form-control" required>
+              <!-- Populated dynamically -->
+            </select>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">Current Daily Hours</label>
+              <input type="text" id="whatIfCurrentHours" class="form-control" readonly disabled>
+            </div>
+            <div class="form-group">
+              <label for="whatIfNewHours" class="form-label">
+                Proposed New Hours (0 to 24) <span class="required">*</span>
+              </label>
+              <input 
+                type="number" 
+                id="whatIfNewHours" 
+                class="form-control" 
+                min="0" 
+                max="24" 
+                step="0.5" 
+                placeholder="e.g., 4"
+                required
+              >
+              <span id="whatIfHoursError" class="field-error-text"></span>
+            </div>
+          </div>
+
+          <div class="whatif-results-box" id="whatIfResultsBox">
+            <h4 class="results-title">Projected Impact &amp; Savings</h4>
+            <div class="results-grid">
+              <div class="res-item">
+                <span class="res-label">Current Monthly:</span>
+                <strong id="whatIfCurrentKWh">0.00 kWh</strong>
+              </div>
+              <div class="res-item">
+                <span class="res-label">Projected Monthly:</span>
+                <strong id="whatIfNewKWh">0.00 kWh</strong>
+              </div>
+              <div class="res-item highlight-res">
+                <span class="res-label">Energy Saved:</span>
+                <strong id="whatIfSavedKWh">0.00 kWh / mo</strong>
+              </div>
+              <div class="res-item highlight-res-green">
+                <span class="res-label">Money Saved:</span>
+                <strong id="whatIfSavedCost">₹0.00 / mo</strong>
+              </div>
+            </div>
+            <p id="whatIfAnnualProjection" class="annual-text"></p>
+          </div>
+
+          <div class="dialog-actions">
+            <button type="submit" class="btn btn-primary">Calculate Projection</button>
+            <button type="button" class="btn btn-outline" id="cancelWhatIfBtn">Close</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 2. Compare Appliances Modal -->
+  <dialog id="compareDialog" class="app-dialog">
+    <div class="dialog-content">
+      <div class="dialog-header">
+        <h3 class="dialog-title">⚖️ Compare Two Appliances</h3>
+        <button type="button" class="btn-close" id="closeCompareBtn">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <p class="dialog-desc">Compare the energy footprint, runtime cost, and annual expenses between two devices.</p>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="compareAppliance1" class="form-label">Appliance A</label>
+            <select id="compareAppliance1" class="form-control"></select>
+          </div>
+          <div class="form-group">
+            <label for="compareAppliance2" class="form-label">Appliance B</label>
+            <select id="compareAppliance2" class="form-control"></select>
+          </div>
+        </div>
+
+        <div id="compareResultsArea" class="compare-results">
+          <!-- Filled via JS -->
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" class="btn btn-outline" id="cancelCompareBtn">Close</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 3. Reset Confirmation Modal -->
+  <dialog id="resetDialog" class="app-dialog">
+    <div class="dialog-content">
+      <div class="dialog-header">
+        <h3 class="dialog-title text-danger">⚠️ Confirm Reset All Data</h3>
+        <button type="button" class="btn-close" id="closeResetBtn">&times;</button>
+      </div>
+      <div class="dialog-body">
+        <p>Are you sure you want to clear all appliances and reset the estimator?</p>
+        <p class="text-muted">This will erase all saved records from browser <code>localStorage</code>.</p>
+        <div class="dialog-actions">
+          <button type="button" id="confirmResetBtn" class="btn btn-danger">Yes, Reset Everything</button>
+          <button type="button" id="cancelResetBtn" class="btn btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <div>
+        <strong>Home Electricity Usage Estimator</strong> · Master of Computer Applications (MCA) Project
+      </div>
+      <div class="footer-links">
+        <span>Formulas: <code>Daily kWh = (W × Qty × Hours) ÷ 1000</code></span>
+        <span>•</span>
+        <span>Cost = <code>Monthly kWh × Unit Rate</code></span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
